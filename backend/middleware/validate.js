@@ -33,6 +33,10 @@ export const schemas = {
       email: Joi.string().email(),
       role: Joi.string().valid('user', 'admin', 'cashier', 'waiter', 'manager', 'owner'),
       points: Joi.number().integer().min(0)
+    }),
+    login: Joi.object({
+      email: Joi.string().required().email(),
+      password: Joi.string().required().min(6)
     })
   },
   reward: {

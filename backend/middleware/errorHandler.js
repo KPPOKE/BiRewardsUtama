@@ -2,8 +2,8 @@
 const errorHandler = (err, req, res, next) => {
   console.error(err.stack);
 
-  // Default error status and message
-  let status = err.status || 500;
+  // Prefer statusCode, then status, then 500
+  let status = err.statusCode || err.status || 500;
   let message = err.message || 'Internal Server Error';
 
   // Handle specific error types

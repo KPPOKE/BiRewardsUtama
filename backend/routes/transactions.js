@@ -6,6 +6,7 @@ import {
   getTransactionStats
 } from '../Controllers/transactionController.js';
 import { protect, authorize } from '../middleware/auth.js';
+import { validate, schemas } from '../middleware/validate.js';
 
 const router = express.Router();
 
@@ -19,9 +20,9 @@ router.get('/users/:userId/transactions', getUserTransactions);
 router.get('/users/:userId/transactions/stats', getTransactionStats);
 
 // Add points (admin/cashier only)
-router.post('/users/:userId/points', authorize('admin', 'cashier'), addPoints);
+router.post('/users/:userId/points', authorize('admin', 'cashier'), validate(schemas.transaction.addPoints), addPoints);
 
 // Redeem reward
-router.post('/users/:userId/redeem', redeemReward);
+router.post('/users/:userId/redeem', validate(schemas.transaction.redeemReward), redeemReward);
 
 export default router; 

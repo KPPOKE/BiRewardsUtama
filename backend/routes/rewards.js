@@ -7,6 +7,7 @@ import {
   getRewardById,
   getAvailableRewards
 } from '../Controllers/rewardController.js';
+import { validate, schemas } from '../middleware/validate.js';
 
 const router = express.Router();
 
@@ -17,10 +18,10 @@ router.get('/rewards', getAllRewards);
 router.get('/rewards/:id', getRewardById);
 
 // Create new reward
-router.post('/rewards', createReward);
+router.post('/rewards', validate(schemas.reward.create), createReward);
 
 // Update reward
-router.put('/rewards/:id', updateReward);
+router.put('/rewards/:id', validate(schemas.reward.update), updateReward);
 
 // Delete reward
 router.delete('/rewards/:id', deleteReward);

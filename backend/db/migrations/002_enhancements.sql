@@ -1,13 +1,14 @@
 -- Add new columns to users table
 ALTER TABLE users
-  ADD COLUMN profile_image VARCHAR(255),
-  ADD COLUMN referral_code VARCHAR(50) UNIQUE,
-  ADD COLUMN referred_by VARCHAR(50),
-  ADD COLUMN loyalty_tier VARCHAR(20) DEFAULT 'Bronze';
+  ADD COLUMN IF NOT EXISTS profile_image VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS referral_code VARCHAR(50) UNIQUE,
+  ADD COLUMN IF NOT EXISTS referred_by VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS loyalty_tier VARCHAR(20) DEFAULT 'Bronze',
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
 
 -- Add expiry to rewards
 ALTER TABLE rewards
-  ADD COLUMN expires_at TIMESTAMP;
+  ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
 
 -- Create audit_logs table
 CREATE TABLE IF NOT EXISTS audit_logs (

@@ -1,6 +1,7 @@
 import pool from '../db.js';
 import AppError from '../utils/AppError.js';
 import path from 'path';
+import bcrypt from 'bcrypt';
 
 // Get all users with pagination
 export const getAllUsers = async (req, res, next) => {
@@ -48,10 +49,13 @@ export const createUser = async (req, res, next) => {
       return next(new AppError('Email already in use', 400));
     }
 
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // Create user
     const result = await pool.query(
       'INSERT INTO users (name, email, password, role, points) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, points',
-      [name, email, password, role, 0]
+      [name, email, hashedPassword, role, 0]
     );
 
     res.status(201).json({
@@ -60,6 +64,27 @@ export const createUser = async (req, res, next) => {
     });
   } catch (error) {
     next(new AppError('Error creating user', 500));
+  }
+};
+
+// User login (add this function)
+export const loginUser = async (req, res, next) => {
+  const { email, password } = req.body;
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      return next(new AppError('User not found', 401));
+    }
+    const user = result.rows[0];
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return next(new AppError('Invalid password', 401));
+    }
+    // Remove password from response
+    delete user.password;
+    res.json({ success: true, data: user });
+  } catch (error) {
+    next(new AppError('Error logging in', 500));
   }
 };
 
@@ -153,6 +178,7 @@ export const uploadProfileImage = async (req, res, next) => {
       data: result.rows[0]
     });
   } catch (error) {
+    console.error('Upload error:', error);
     next(new AppError('Error uploading profile image', 500));
   }
 };
