@@ -1,0 +1,134 @@
+openapi: 3.0.0
+info:
+  title: BiReward API
+  version: 1.0.0
+  description: API documentation for the BiReward loyalty rewards application
+servers:
+  - url: http://localhost:3000/api
+paths:
+  /users:
+    get:
+      summary: Get all users
+      responses:
+        '200':
+          description: A list of users
+    post:
+      summary: Create a new user
+      responses:
+        '201':
+          description: User created
+  /users/login:
+    post:
+      summary: User login
+      responses:
+        '200':
+          description: Login successful
+  /users/{id}:
+    get:
+      summary: Get user by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User found
+    put:
+      summary: Update user by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User updated
+    delete:
+      summary: Delete user by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: User deleted
+  /rewards:
+    get:
+      summary: Get all rewards
+      responses:
+        '200':
+          description: A list of rewards
+    post:
+      summary: Create a new reward
+      responses:
+        '201':
+          description: Reward created
+  /rewards/{id}:
+    get:
+      summary: Get reward by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reward found
+    put:
+      summary: Update reward by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reward updated
+    delete:
+      summary: Delete reward by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Reward deleted
+  /transactions:
+    get:
+      summary: Get all transactions
+      responses:
+        '200':
+          description: A list of transactions
+  /transactions/add-points:
+    post:
+      summary: Add points to a user
+      responses:
+        '201':
+          description: Points added
+  /transactions/redeem:
+    post:
+      summary: Redeem a reward
+      responses:
+        '201':
+          description: Reward redeemed
+  /transactions/user/{userId}:
+    get:
+      summary: Get transactions by user ID
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Transactions for user 
