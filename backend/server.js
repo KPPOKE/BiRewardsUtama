@@ -52,7 +52,7 @@ app.use('/api', transactionRoutes);
 app.use('/api-docs', apiDocsRoutes);
 
 // Serve uploads directory for profile images
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Error handling
 app.use(errorHandler);

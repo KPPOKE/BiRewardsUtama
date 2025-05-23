@@ -55,6 +55,7 @@ router.delete('/users/:id', protect, authorize('admin'), auditLog('user_deleted'
 // Profile routes
 router.get('/users/:id/profile', protect, getUserProfile);
 router.post('/users/:id/profile-image', protect, upload.single('profile_image'), uploadProfileImage);
+router.put('/users/:id/profile', protect, updateUser);
 
 // Public routes (no authentication required)
 router.post('/users/login', sensitiveLimiter, validate(schemas.user.login), loginUser);

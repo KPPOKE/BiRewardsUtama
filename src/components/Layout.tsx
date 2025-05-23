@@ -53,6 +53,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const userStatus = getUserStatus(userPoints);
   const badgeClass = statusColors[userStatus as keyof typeof statusColors];
 
+  // Only show member status and profile for 'user' role
+  const showMemberStatus = userRole === 'user';
+
   // Update activeRoute saat hash berubah
   useEffect(() => {
     const onHashChange = () => {
@@ -106,6 +109,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   else if (userRole === 'manager') {
     navigation = navigation.filter(item => item.name === 'Dashboard');
   }
+  // If cashier, remove Add Points from navigation
+  else if (userRole === 'cashier') {
+    navigation = navigation.filter(item => item.name !== 'Add Points');
+  }
+  // If waiter, remove Add Points and Promotions from navigation
+  else if (userRole === 'waiter') {
+    navigation = navigation.filter(item => item.name !== 'Add Points' && item.name !== 'Promotions');
+  }
 
   // Filter menu sesuai role
   const filteredNavigation = navigation.filter(item => item.show);
@@ -132,9 +143,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </button>
 
               {/* Status Badge */}
-              <span className={`px-2 py-1 rounded border text-xs font-semibold ${badgeClass}`}>
-                {userStatus} Member
-              </span>
+              {showMemberStatus && (
+                <span className={`px-2 py-1 rounded border text-xs font-semibold ${badgeClass}`}>
+                  {userStatus} Member
+                </span>
+              )}
 
               {/* User Profile Dropdown */}
               <div className="relative">
@@ -165,17 +178,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         <div className="font-medium">{currentUser?.name}</div>
                         <div className="text-gray-500 truncate">{currentUser?.email}</div>
                       </div>
-                      <button
-                        className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => {
-                          handleNavClick('profile');
-                          setIsUserMenuOpen(false);
-                        }}
-                        role="menuitem"
-                      >
-                        <UserIcon size={16} className="mr-2 text-gray-500" />
-                        Your Profile
-                      </button>
+                      {showMemberStatus && (
+                        <button
+                          className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => {
+                            handleNavClick('profile');
+                            setIsUserMenuOpen(false);
+                          }}
+                          role="menuitem"
+                        >
+                          <UserIcon size={16} className="mr-2 text-gray-500" />
+                          Your Profile
+                        </button>
+                      )}
                       <button
                         className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                         onClick={logout}
@@ -250,12 +265,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-700">{currentUser?.name}</p>
-                <div className="flex items-center space-x-2">
-                  <Badge points={userPoints} className="inline-flex text-xs text-primary-600" />
+                {showMemberStatus && (
                   <span className={`px-2 py-1 rounded border text-xs font-semibold ${badgeClass}`}>
                     {userStatus} Member
                   </span>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -310,12 +324,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </div>
                   <div>
                     <p className="text-base font-medium text-gray-700">{currentUser?.name}</p>
-                    <div className="flex items-center space-x-2">
-                      <Badge points={userPoints} className="inline-flex text-xs text-primary-600" />
+                    {showMemberStatus && (
                       <span className={`px-2 py-1 rounded border text-xs font-semibold ${badgeClass}`}>
                         {userStatus} Member
                       </span>
-                    </div>
+                    )}
                   </div>
                 </div>
                 <button

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../utils/roleAccess';
 import { users as mockUsers } from '../../utils/mockData';
@@ -9,6 +9,11 @@ import Badge from '../ui/Badge';
 import { User, Award, Pencil, Search, Plus, Calendar, X } from 'lucide-react';
 import { User as UserType } from '../../types';
 
+// Extend UserType to include created_at for backend compatibility
+interface UserWithCreatedAt extends UserType {
+  created_at?: string;
+}
+
 const AdminUsersPage: React.FC = () => {
   const { currentUser } = useAuth();
   const userRole = (currentUser?.role as UserRole) || 'user';
@@ -17,11 +22,11 @@ const AdminUsersPage: React.FC = () => {
     return <div className="p-6 text-red-600 font-semibold">Not authorized to view this page.</div>;
   }
 
-  const [users, setUsers] = useState<UserType[]>(mockUsers);
+  const [users, setUsers] = useState<UserWithCreatedAt[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserType | null>(null);
+  const [editingUser, setEditingUser] = useState<UserWithCreatedAt | null>(null);
   
   // New user state
   const [newUser, setNewUser] = useState({
@@ -31,10 +36,28 @@ const AdminUsersPage: React.FC = () => {
     role: 'user' as 'user' | 'admin',
   });
 
-  // Filter users based on search term
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const token = (currentUser as any)?.token;
+      const res = await fetch('http://localhost:3000/api/users', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success) setUsers(data.data);
+    };
+    fetchUsers();
+  }, [currentUser]);
+
+  // Filter users based on search term and only show users with role 'user'
   const filteredUsers = users.filter(user => 
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    user.role === 'user' && (
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   const handleAddUser = () => {
@@ -51,7 +74,7 @@ const AdminUsersPage: React.FC = () => {
     }
 
     // Create new user with generated ID
-    const newUserObj: UserType = {
+    const newUserObj: UserWithCreatedAt = {
       id: `${users.length + 1}`,
       ...newUser,
       createdAt: new Date().toISOString(),
@@ -69,32 +92,54 @@ const AdminUsersPage: React.FC = () => {
     });
   };
 
-  const handleEditUser = () => {
+  const handleEditUser = async () => {
     if (!editingUser) return;
-    
     // Simple validation
     if (!editingUser.name || !editingUser.email) {
       alert('Name and email are required');
       return;
     }
-
-    // Update user
-    const updatedUsers = users.map(user => 
-      user.id === editingUser.id ? editingUser : user
-    );
-
-    setUsers(updatedUsers);
-    setShowEditModal(false);
-    setEditingUser(null);
+    try {
+      const token = (currentUser as any)?.token;
+      const res = await fetch(`http://localhost:3000/api/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: editingUser.name,
+          email: editingUser.email,
+          points: editingUser.points,
+          role: editingUser.role
+        })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const updatedUsers = users.map(user =>
+          user.id === editingUser.id ? { ...user, ...updated.data } : user
+        );
+        setUsers(updatedUsers);
+        setShowEditModal(false);
+        setEditingUser(null);
+      } else {
+        alert('Failed to update user.');
+      }
+    } catch (err) {
+      alert('Failed to update user.');
+    }
   };
 
-  const handleEditClick = (user: UserType) => {
+  const handleEditClick = (user: UserWithCreatedAt) => {
     setEditingUser({...user});
     setShowEditModal(true);
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '-';
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
@@ -106,9 +151,13 @@ const AdminUsersPage: React.FC = () => {
     if (!editingUser) return;
     if (!window.confirm(`Are you sure you want to delete user '${editingUser.name}'? This action cannot be undone.`)) return;
     try {
-      const res = await fetch(`/api/users/${editingUser.id}`, {
+      const token = (currentUser as any)?.token;
+      const res = await fetch(`http://localhost:3000/api/users/${editingUser.id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         credentials: 'include',
       });
       if (res.ok) {
@@ -193,7 +242,7 @@ const AdminUsersPage: React.FC = () => {
                     <td className="py-3 px-4 text-sm text-gray-600">
                       <div className="flex items-center">
                         <Calendar size={14} className="mr-2 text-gray-400" />
-                        {formatDate(user.createdAt)}
+                        {formatDate(user.created_at || '')}
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">

@@ -36,12 +36,16 @@ const UserProfilePage: React.FC = () => {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [showCropper, setShowCropper] = useState(false);
 
+  const token = (currentUser as any)?.token;
   const handleUpdate = async () => {
     setMessage('');
     // 1. Update name, email, phone
-    const response = await fetch(`${API_URL}/users/${currentUser?.id}`, {
+    const response = await fetch(`${API_URL}/users/${currentUser?.id}/profile`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       credentials: 'include',
       body: JSON.stringify({ name, email, phone }),
     });
@@ -64,6 +68,9 @@ const UserProfilePage: React.FC = () => {
         formData.append('profile_image', newImage);
         const imgRes = await fetch(`${API_URL}/users/${currentUser?.id}/profile-image`, {
           method: 'POST',
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           credentials: 'include',
           body: formData,
         });

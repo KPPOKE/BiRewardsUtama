@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 export const getAllUsers = async (req, res, next) => {
   const { page = 1, limit = 10, role, search } = req.query;
   const offset = (page - 1) * limit;
-  let query = 'SELECT * FROM users';
+  let query = 'SELECT id, name, email, role, points, created_at FROM users';
   const params = [];
 
   if (role) {
@@ -97,7 +97,7 @@ export const loginUser = async (req, res, next) => {
 // Update user
 export const updateUser = async (req, res, next) => {
   const { id } = req.params;
-  const { name, email, role, points } = req.body;
+  const { name, email, role, points, phone } = req.body;
 
   try {
     // Check if user exists
@@ -108,8 +108,8 @@ export const updateUser = async (req, res, next) => {
 
     // Update user
     const result = await pool.query(
-      'UPDATE users SET name = COALESCE($1, name), email = COALESCE($2, email), role = COALESCE($3, role), points = COALESCE($4, points) WHERE id = $5 RETURNING id, name, email, role, points',
-      [name, email, role, points, id]
+      'UPDATE users SET name = COALESCE($1, name), email = COALESCE($2, email), role = COALESCE($3, role), points = COALESCE($4, points), phone = COALESCE($5, phone) WHERE id = $6 RETURNING id, name, email, role, points, phone',
+      [name, email, role, points, phone, id]
     );
 
     res.json({
