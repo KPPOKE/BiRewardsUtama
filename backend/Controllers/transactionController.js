@@ -172,4 +172,33 @@ export const getTransactionStats = async (req, res, next) => {
   } catch (error) {
     next(new AppError('Error fetching transaction statistics', 500));
   }
+};
+
+// Get all transactions (admin/manager)
+export const getAllTransactions = async (req, res, next) => {
+  const { page = 1, limit = 10, user_id, transaction_type } = req.query;
+  const offset = (page - 1) * limit;
+  let query = 'SELECT * FROM transactions';
+  const params = [];
+
+  if (user_id) {
+    query += ' WHERE user_id = $1';
+    params.push(user_id);
+  }
+
+  if (transaction_type) {
+    query += user_id ? ' AND' : ' WHERE';
+    query += ' transaction_type = $' + (params.length + 1);
+    params.push(transaction_type);
+  }
+
+  query += ' LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+  params.push(limit, offset);
+
+  try {
+    const { rows } = await pool.query(query, params);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    next(error);
+  }
 }; 

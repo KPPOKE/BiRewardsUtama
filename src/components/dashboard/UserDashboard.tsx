@@ -7,11 +7,17 @@ import Button from '../ui/Button';
 import { Award, TrendingUp, Clock, Gift, ShoppingBag } from 'lucide-react';
 import { Transaction, Voucher } from '../../types';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { UserRole } from '../../utils/roleAccess';
 
 const UserDashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const { userTransactions, vouchers, redeemVoucher } = useLoyalty();
+  const userRole = (currentUser?.role as UserRole) || 'user';
   
+  if (userRole !== 'user') {
+    return <div className="p-6 text-red-600 font-semibold">Not authorized to view this page.</div>;
+  }
+
   // Calculate some stats
   const totalSpent = userTransactions
     .filter(t => t.type === 'purchase')

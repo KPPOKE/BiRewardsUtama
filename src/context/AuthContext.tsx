@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/login', {
+      const res = await fetch('http://localhost:3000/api/users/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -39,10 +39,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      const user: User = await res.json();
-
-      setCurrentUser(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      const response = await res.json();
+      setCurrentUser({ ...response.data, token: response.token });
+      localStorage.setItem('currentUser', JSON.stringify({ ...response.data, token: response.token }));
       setIsLoading(false);
       return true;
     } catch (error) {
@@ -54,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/register', {
+      const res = await fetch('http://localhost:3000/api/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
@@ -65,10 +64,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      const user: User = await res.json();
-
-      setCurrentUser(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      const response = await res.json();
+      setCurrentUser({ ...response.data, token: response.token });
+      localStorage.setItem('currentUser', JSON.stringify({ ...response.data, token: response.token }));
       setIsLoading(false);
       return true;
     } catch (error) {

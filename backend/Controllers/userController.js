@@ -2,34 +2,34 @@ import pool from '../db.js';
 import AppError from '../utils/AppError.js';
 import path from 'path';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 // Get all users with pagination
 export const getAllUsers = async (req, res, next) => {
+  const { page = 1, limit = 10, role, search } = req.query;
+  const offset = (page - 1) * limit;
+  let query = 'SELECT * FROM users';
+  const params = [];
+
+  if (role) {
+    query += ' WHERE role = $1';
+    params.push(role);
+  }
+
+  if (search) {
+    query += role ? ' AND' : ' WHERE';
+    query += ' (name ILIKE $' + (params.length + 1) + ' OR email ILIKE $' + (params.length + 1) + ')';
+    params.push(`%${search}%`);
+  }
+
+  query += ' LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+  params.push(limit, offset);
+
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
-
-    const result = await pool.query(
-      'SELECT id, name, email, role, points, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-      [limit, offset]
-    );
-
-    const countResult = await pool.query('SELECT COUNT(*) FROM users');
-    const totalUsers = parseInt(countResult.rows[0].count);
-
-    res.json({
-      success: true,
-      data: result.rows,
-      pagination: {
-        page,
-        limit,
-        totalUsers,
-        totalPages: Math.ceil(totalUsers / limit)
-      }
-    });
+    const { rows } = await pool.query(query, params);
+    res.json({ success: true, data: rows });
   } catch (error) {
-    next(new AppError('Error fetching users', 500));
+    next(error);
   }
 };
 
@@ -82,7 +82,13 @@ export const loginUser = async (req, res, next) => {
     }
     // Remove password from response
     delete user.password;
-    res.json({ success: true, data: user });
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+    res.json({ success: true, token, data: user });
   } catch (error) {
     next(new AppError('Error logging in', 500));
   }
@@ -200,5 +206,152 @@ export const getUserProfile = async (req, res, next) => {
     });
   } catch (error) {
     next(new AppError('Error fetching user profile', 500));
+  }
+};
+
+// Owner business stats
+export const getOwnerStats = async (req, res, next) => {
+  try {
+    // Total active users
+    const usersResult = await pool.query('SELECT COUNT(*) FROM users WHERE role = $1', ['user']);
+    const totalUsers = parseInt(usersResult.rows[0].count);
+
+    // Top redeemed rewards
+    const topRewardsResult = await pool.query(`
+      SELECT r.id, r.title, COUNT(t.id) as redeemed_count
+      FROM rewards r
+      JOIN transactions t ON t.reward_id = r.id AND t.type = 'reward_redeemed'
+      GROUP BY r.id, r.title
+      ORDER BY redeemed_count DESC
+      LIMIT 5
+    `);
+
+    // Total redemptions
+    const totalRedemptionsResult = await pool.query(
+      `SELECT COUNT(*) FROM transactions WHERE type = 'reward_redeemed'`
+    );
+    const totalRedemptions = parseInt(totalRedemptionsResult.rows[0].count);
+
+    // Recent admin & cashier activity logs (last 10)
+    const activityLogsResult = await pool.query(`
+      SELECT t.id, t.user_id, u.name as user_name, u.role, t.type, t.amount, t.description, t.created_at
+      FROM transactions t
+      JOIN users u ON t.user_id = u.id
+      WHERE u.role IN ('admin', 'cashier')
+      ORDER BY t.created_at DESC
+      LIMIT 10
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        totalUsers,
+        topRewards: topRewardsResult.rows,
+        totalRedemptions,
+        activityLogs: activityLogsResult.rows
+      }
+    });
+  } catch (error) {
+    next(new AppError('Error fetching owner stats', 500));
+  }
+};
+
+// Get all users with their total purchase and points (for owner)
+export const getOwnerUsersStats = async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.id, u.name, u.email, u.points, COALESCE(SUM(t.amount), 0) as total_purchase
+      FROM users u
+      LEFT JOIN transactions t ON u.id = t.user_id AND t.type = 'purchase'
+      WHERE u.role = 'user'
+      GROUP BY u.id, u.name, u.email, u.points
+      ORDER BY total_purchase DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(new AppError('Error fetching user stats', 500));
+  }
+};
+
+// Owner metrics for dashboard charts
+export const getOwnerMetrics = async (req, res, next) => {
+  try {
+    // User growth per month (last 12 months)
+    const userGrowthResult = await pool.query(`
+      SELECT to_char(created_at, 'YYYY-MM') as month,
+             COUNT(*) as new_users
+      FROM users
+      WHERE role = 'user'
+        AND created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '11 months'
+      GROUP BY month
+      ORDER BY month
+    `);
+    // Get cumulative total users per month
+    const totalUsersResult = await pool.query(`
+      SELECT to_char(months.month, 'YYYY-MM') as month,
+             COUNT(u.id) as total_users
+      FROM (
+        SELECT generate_series(
+          date_trunc('month', CURRENT_DATE) - INTERVAL '11 months',
+          date_trunc('month', CURRENT_DATE),
+          interval '1 month'
+        ) as month
+      ) months
+      LEFT JOIN users u ON u.role = 'user' AND u.created_at <= months.month + interval '1 month' - interval '1 day'
+      GROUP BY months.month
+      ORDER BY months.month
+    `);
+    // Points issued/redeemed per month (last 12 months)
+    const pointsStatsResult = await pool.query(`
+      SELECT to_char(created_at, 'YYYY-MM') as month,
+        SUM(CASE WHEN type = 'points_added' THEN amount ELSE 0 END) as points_issued,
+        SUM(CASE WHEN type = 'reward_redeemed' THEN ABS(amount) ELSE 0 END) as points_redeemed
+      FROM transactions
+      WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '11 months'
+      GROUP BY month
+      ORDER BY month
+    `);
+    // Top 5 users by total purchase
+    const topUsersResult = await pool.query(`
+      SELECT u.id, u.name, u.email, u.points, COALESCE(SUM(t.amount), 0) as total_purchase
+      FROM users u
+      LEFT JOIN transactions t ON u.id = t.user_id AND t.type = 'purchase'
+      WHERE u.role = 'user'
+      GROUP BY u.id, u.name, u.email, u.points
+      ORDER BY total_purchase DESC
+      LIMIT 5
+    `);
+    res.json({
+      success: true,
+      data: {
+        userGrowth: userGrowthResult.rows,
+        totalUsers: totalUsersResult.rows,
+        pointsStats: pointsStatsResult.rows,
+        topUsers: topUsersResult.rows
+      }
+    });
+  } catch (error) {
+    console.error('getOwnerMetrics error:', error);
+    next(new AppError('Error fetching owner metrics', 500));
+  }
+};
+
+// Get user by phone number
+export const getUserByPhone = async (req, res, next) => {
+  const { phone } = req.query;
+  if (!phone) {
+    return next(new AppError('Phone number is required', 400));
+  }
+  try {
+    const result = await pool.query(
+      'SELECT id, name, phone, points FROM users WHERE phone = $1',
+      [phone]
+    );
+    if (result.rows.length === 0) {
+      return next(new AppError('User not found', 404));
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(new AppError('Error fetching user by phone', 500));
   }
 };

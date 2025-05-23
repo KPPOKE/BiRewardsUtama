@@ -6,11 +6,18 @@ import {
   deleteUser,
   uploadProfileImage,
   getUserProfile,
-  loginUser
+  loginUser,
+  getOwnerStats,
+  getOwnerUsersStats,
+  getOwnerMetrics,
+  getUserByPhone
 } from '../Controllers/userController.js'
 import multer from 'multer';
 import path from 'path';
 import { validate, schemas } from '../middleware/validate.js';
+import { protect, authorize } from '../middleware/auth.js';
+import { auditLog } from '../middleware/auditLog.js';
+import { sensitiveLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -38,16 +45,24 @@ const upload = multer({
   }
 });
 
-router.get('/users', getAllUsers);
-router.post('/users', validate(schemas.user.create), createUser);
-router.put('/users/:id', updateUser);
-router.delete('/users/:id', deleteUser);
+// Protected routes
+router.get('/users', protect, authorize('admin', 'manager'), getAllUsers);
+router.get('/users/lookup', protect, authorize('cashier', 'waiter'), getUserByPhone);
+router.post('/users', protect, authorize('admin'), validate(schemas.user.create), auditLog('user_created'), createUser);
+router.put('/users/:id', protect, authorize('admin'), validate(schemas.user.update), auditLog('user_updated'), updateUser);
+router.delete('/users/:id', protect, authorize('admin'), auditLog('user_deleted'), deleteUser);
 
-// New profile endpoints
-router.get('/users/:id/profile', getUserProfile);
-router.post('/users/:id/profile-image', upload.single('profile_image'), uploadProfileImage);
+// Profile routes
+router.get('/users/:id/profile', protect, getUserProfile);
+router.post('/users/:id/profile-image', protect, upload.single('profile_image'), uploadProfileImage);
 
-// Login endpoint
-router.post('/users/login', validate(schemas.user.login), loginUser);
+// Public routes (no authentication required)
+router.post('/users/login', sensitiveLimiter, validate(schemas.user.login), loginUser);
+router.post('/users/register', sensitiveLimiter, validate(schemas.user.create), createUser);
+
+// Owner stats route (admin/owner/manager)
+router.get('/owner/stats', protect, authorize('owner', 'admin', 'manager'), getOwnerStats);
+router.get('/owner/users-stats', protect, authorize('owner', 'admin', 'manager'), getOwnerUsersStats);
+router.get('/owner/metrics', protect, authorize('owner', 'admin', 'manager'), getOwnerMetrics);
 
 export default router;

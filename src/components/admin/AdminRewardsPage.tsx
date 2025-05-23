@@ -6,8 +6,17 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Gift, Pencil, Search, Plus, Calendar, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Voucher } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { UserRole } from '../../utils/roleAccess';
 
 const AdminRewardsPage: React.FC = () => {
+  const { currentUser } = useAuth();
+  const userRole = (currentUser?.role as UserRole) || 'user';
+
+  if (userRole !== 'admin' && userRole !== 'manager') {
+    return <div className="p-6 text-red-600 font-semibold">Not authorized to view this page.</div>;
+  }
+
   const [vouchers, setVouchers] = useState<Voucher[]>(mockVouchers);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -106,6 +115,27 @@ const AdminRewardsPage: React.FC = () => {
         : voucher
     );
     setVouchers(updatedVouchers);
+  };
+
+  const handleDeleteVoucher = async () => {
+    if (!currentVoucher) return;
+    if (!window.confirm(`Are you sure you want to delete reward '${currentVoucher.title}'? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/rewards/${currentVoucher.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setVouchers(vouchers.filter(v => v.id !== currentVoucher.id));
+        setShowEditModal(false);
+        setCurrentVoucher(null);
+      } else {
+        alert('Failed to delete reward.');
+      }
+    } catch (err) {
+      alert('Failed to delete reward.');
+    }
   };
 
   return (
@@ -383,6 +413,12 @@ const AdminRewardsPage: React.FC = () => {
                 leftIcon={<Gift size={16} />}
               >
                 Save Changes
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDeleteVoucher}
+              >
+                Delete
               </Button>
             </div>
           </div>

@@ -8,8 +8,15 @@ export const getAllRewards = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
+    // Get rewards with redemptions count and created_at
     const result = await pool.query(
-      'SELECT * FROM rewards ORDER BY points_cost ASC LIMIT $1 OFFSET $2',
+      `SELECT r.*, 
+        COALESCE(COUNT(t.id), 0) as redemptions
+      FROM rewards r
+      LEFT JOIN transactions t ON t.reward_id = r.id AND t.type = 'reward_redeemed'
+      GROUP BY r.id
+      ORDER BY r.points_cost ASC
+      LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
 

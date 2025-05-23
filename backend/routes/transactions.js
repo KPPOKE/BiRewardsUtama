@@ -3,10 +3,12 @@ import {
   getUserTransactions,
   addPoints,
   redeemReward,
-  getTransactionStats
+  getTransactionStats,
+  getAllTransactions
 } from '../Controllers/transactionController.js';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect, authorize, canAccessOwnOrAdmin } from '../middleware/auth.js';
 import { validate, schemas } from '../middleware/validate.js';
+import { auditLog } from '../middleware/auditLog.js';
 
 const router = express.Router();
 
@@ -14,15 +16,18 @@ const router = express.Router();
 router.use(protect);
 
 // Get user transactions
-router.get('/users/:userId/transactions', getUserTransactions);
+router.get('/users/:userId/transactions', canAccessOwnOrAdmin, getUserTransactions);
 
 // Get transaction statistics
-router.get('/users/:userId/transactions/stats', getTransactionStats);
+router.get('/users/:userId/transactions/stats', canAccessOwnOrAdmin, getTransactionStats);
 
-// Add points (admin/cashier only)
-router.post('/users/:userId/points', authorize('admin', 'cashier'), validate(schemas.transaction.addPoints), addPoints);
+// Get all transactions (admin/manager)
+router.get('/all', authorize('admin', 'manager'), getAllTransactions);
+
+// Add points (admin/manager/cashier only)
+router.post('/users/:userId/points', authorize('admin', 'manager', 'cashier'), validate(schemas.transaction.addPoints), auditLog('points_changed'), addPoints);
 
 // Redeem reward
-router.post('/users/:userId/redeem', validate(schemas.transaction.redeemReward), redeemReward);
+router.post('/users/:userId/redeem', validate(schemas.transaction.redeemReward), auditLog('reward_redeemed'), redeemReward);
 
 export default router; 

@@ -13,6 +13,17 @@ import {
   ChevronDown,
   Bell
 } from 'lucide-react';
+import {
+  canViewStats,
+  canViewPerformanceReports,
+  canManageRewards,
+  canManageUsers,
+  canManagePoints,
+  canAddPoints,
+  canViewPromotions,
+  isAdmin,
+  UserRole
+} from '../utils/roleAccess';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -37,8 +48,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [activeRoute, setActiveRoute] = useState(window.location.hash.replace('#', '') || 'dashboard');
 
-  const isAdmin = currentUser?.role === 'admin';
-
+  const userRole = (currentUser?.role as UserRole) || 'user';
   const userPoints = currentUser?.points || 0;
   const userStatus = getUserStatus(userPoints);
   const badgeClass = statusColors[userStatus as keyof typeof statusColors];
@@ -67,17 +77,38 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return <div className="bg-gray-50 min-h-screen">{children}</div>;
   }
 
-  const navigation = [
-    { name: 'Dashboard', href: 'dashboard', icon: Home, admin: false },
-    { name: 'Rewards', href: 'rewards', icon: Gift, admin: false },
-    { name: 'Transactions', href: 'transactions', icon: Clock, admin: false },
-    { name: 'Manage Users', href: 'admin/users', icon: Users, admin: true },
-    { name: 'Manage Rewards', href: 'admin/rewards', icon: Award, admin: true },
-    { name: 'Add Points', href: 'admin/add-points', icon: Award, admin: true },
+  // Define navigation items with role checks
+  let navigation = [
+    { name: 'Dashboard', href: 'dashboard', icon: Home, show: true },
+    { name: 'Rewards', href: 'rewards', icon: Gift, show: canManageRewards(userRole) || userRole === 'user' },
+    { name: 'Transactions', href: 'transactions', icon: Clock, show: canManagePoints(userRole) || userRole === 'user' },
+    { name: 'Manage Users', href: 'admin/users', icon: Users, show: canManageUsers(userRole) },
+    { name: 'Manage Rewards', href: 'admin/rewards', icon: Award, show: canManageRewards(userRole) },
+    { name: 'Add Points', href: 'admin/add-points', icon: Award, show: canAddPoints(userRole) || canManagePoints(userRole) },
+    { name: 'Promotions', href: 'promotions', icon: Gift, show: canViewPromotions(userRole) },
+    { name: 'Stats', href: 'stats', icon: Award, show: canViewStats(userRole) },
+    { name: 'Performance Reports', href: 'performance', icon: Award, show: canViewPerformanceReports(userRole) },
   ];
 
+  // If owner, only show Dashboard
+  if (userRole === 'owner') {
+    navigation = navigation.filter(item => item.name === 'Dashboard');
+  }
+  // If admin, only show Manage Users, Manage Rewards, Add Points
+  else if (userRole === 'admin') {
+    navigation = navigation.filter(item => ['Manage Users', 'Manage Rewards', 'Add Points'].includes(item.name));
+    // Set default route to Manage Users on first load
+    if (window.location.hash === '' || window.location.hash === '#dashboard') {
+      window.location.hash = 'admin/users';
+    }
+  }
+  // If manager, only show Dashboard
+  else if (userRole === 'manager') {
+    navigation = navigation.filter(item => item.name === 'Dashboard');
+  }
+
   // Filter menu sesuai role
-  const filteredNavigation = navigation.filter(item => !item.admin || isAdmin);
+  const filteredNavigation = navigation.filter(item => item.show);
 
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
@@ -116,7 +147,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   <span className="sr-only">Open user menu</span>
                   <div className="p-1 rounded-full border border-primary-300 bg-primary-100 text-primary-700 h-8 w-8 flex items-center justify-center font-semibold">
-                    {currentUser?.name.charAt(0)}
+                    {(currentUser?.name || '').charAt(0)}
                   </div>
                   <span className="ml-2 text-gray-700">{currentUser?.name}</span>
                   <ChevronDown size={16} className="ml-1 text-gray-500" />
@@ -214,7 +245,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold">
-                  {currentUser?.name.charAt(0)}
+                  {(currentUser?.name || '').charAt(0)}
                 </div>
               </div>
               <div className="ml-3">
@@ -274,7 +305,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="flex items-center space-x-3">
                   <div className="flex-shrink-0">
                     <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold">
-                      {currentUser?.name.charAt(0)}
+                      {(currentUser?.name || '').charAt(0)}
                     </div>
                   </div>
                   <div>

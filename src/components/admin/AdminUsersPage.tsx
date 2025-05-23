@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { UserRole } from '../../utils/roleAccess';
 import { users as mockUsers } from '../../utils/mockData';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Input from '../ui/Input';
@@ -8,11 +10,18 @@ import { User, Award, Pencil, Search, Plus, Calendar, X } from 'lucide-react';
 import { User as UserType } from '../../types';
 
 const AdminUsersPage: React.FC = () => {
+  const { currentUser } = useAuth();
+  const userRole = (currentUser?.role as UserRole) || 'user';
+
+  if (userRole !== 'admin' && userRole !== 'manager') {
+    return <div className="p-6 text-red-600 font-semibold">Not authorized to view this page.</div>;
+  }
+
   const [users, setUsers] = useState<UserType[]>(mockUsers);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [editingUser, setEditingUser] = useState<UserType | null>(null);
   
   // New user state
   const [newUser, setNewUser] = useState({
@@ -61,26 +70,26 @@ const AdminUsersPage: React.FC = () => {
   };
 
   const handleEditUser = () => {
-    if (!currentUser) return;
+    if (!editingUser) return;
     
     // Simple validation
-    if (!currentUser.name || !currentUser.email) {
+    if (!editingUser.name || !editingUser.email) {
       alert('Name and email are required');
       return;
     }
 
     // Update user
     const updatedUsers = users.map(user => 
-      user.id === currentUser.id ? currentUser : user
+      user.id === editingUser.id ? editingUser : user
     );
 
     setUsers(updatedUsers);
     setShowEditModal(false);
-    setCurrentUser(null);
+    setEditingUser(null);
   };
 
   const handleEditClick = (user: UserType) => {
-    setCurrentUser({...user});
+    setEditingUser({...user});
     setShowEditModal(true);
   };
 
@@ -91,6 +100,27 @@ const AdminUsersPage: React.FC = () => {
       day: 'numeric',
       year: 'numeric',
     }).format(date);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!editingUser) return;
+    if (!window.confirm(`Are you sure you want to delete user '${editingUser.name}'? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setUsers(users.filter(u => u.id !== editingUser.id));
+        setShowEditModal(false);
+        setEditingUser(null);
+      } else {
+        alert('Failed to delete user.');
+      }
+    } catch (err) {
+      alert('Failed to delete user.');
+    }
   };
 
   return (
@@ -279,7 +309,7 @@ const AdminUsersPage: React.FC = () => {
       )}
 
       {/* Edit User Modal */}
-      {showEditModal && currentUser && (
+      {showEditModal && editingUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
@@ -295,8 +325,8 @@ const AdminUsersPage: React.FC = () => {
               <Input
                 label="Full Name"
                 placeholder="Enter user's full name"
-                value={currentUser.name}
-                onChange={(e) => setCurrentUser({...currentUser, name: e.target.value})}
+                value={editingUser.name}
+                onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
                 fullWidth
                 required
               />
@@ -304,8 +334,8 @@ const AdminUsersPage: React.FC = () => {
                 label="Email"
                 type="email"
                 placeholder="Enter user's email"
-                value={currentUser.email}
-                onChange={(e) => setCurrentUser({...currentUser, email: e.target.value})}
+                value={editingUser.email}
+                onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
                 fullWidth
                 required
               />
@@ -313,8 +343,8 @@ const AdminUsersPage: React.FC = () => {
                 label="Points"
                 type="number"
                 placeholder="Points"
-                value={currentUser.points.toString()}
-                onChange={(e) => setCurrentUser({...currentUser, points: parseInt(e.target.value) || 0})}
+                value={editingUser.points.toString()}
+                onChange={(e) => setEditingUser({...editingUser, points: parseInt(e.target.value) || 0})}
                 fullWidth
               />
               <div>
@@ -326,8 +356,8 @@ const AdminUsersPage: React.FC = () => {
                     <input
                       type="radio"
                       className="form-radio h-4 w-4 text-purple-600"
-                      checked={currentUser.role === 'user'}
-                      onChange={() => setCurrentUser({...currentUser, role: 'user'})}
+                      checked={editingUser.role === 'user'}
+                      onChange={() => setEditingUser({...editingUser, role: 'user'})}
                     />
                     <span className="ml-2 text-gray-700">User</span>
                   </label>
@@ -335,8 +365,8 @@ const AdminUsersPage: React.FC = () => {
                     <input
                       type="radio"
                       className="form-radio h-4 w-4 text-purple-600"
-                      checked={currentUser.role === 'admin'}
-                      onChange={() => setCurrentUser({...currentUser, role: 'admin'})}
+                      checked={editingUser.role === 'admin'}
+                      onChange={() => setEditingUser({...editingUser, role: 'admin'})}
                     />
                     <span className="ml-2 text-gray-700">Admin</span>
                   </label>
@@ -354,6 +384,12 @@ const AdminUsersPage: React.FC = () => {
                 onClick={handleEditUser}
               >
                 Save Changes
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDeleteUser}
+              >
+                Delete
               </Button>
             </div>
           </div>

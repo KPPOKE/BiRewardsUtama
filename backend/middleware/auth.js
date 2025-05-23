@@ -27,4 +27,20 @@ export const authorize = (...roles) => {
     }
     next();
   };
+};
+
+export const canAccessOwnOrAdmin = (req, res, next) => {
+  const userId = req.params.userId;
+  const currentUser = req.user;
+  if (!currentUser) {
+    return res.status(401).json({ success: false, error: { message: 'Not authenticated' } });
+  }
+  if (
+    currentUser.role === 'admin' ||
+    currentUser.role === 'manager' ||
+    String(currentUser.id) === String(userId)
+  ) {
+    return next();
+  }
+  return res.status(403).json({ success: false, error: { message: 'Forbidden: You can only access your own data.' } });
 }; 
